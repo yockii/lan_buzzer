@@ -1,0 +1,27 @@
+# Build output
+build/
+*.exe
+*.dll
+*.so
+*.dylib
+lan-buzzer
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Go
+backend/embed/dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Superpowers
+.superpowers/
