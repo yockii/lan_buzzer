@@ -66,6 +66,14 @@ func (h *Handler) handleConnection(conn *websocket.Conn) {
 			h.handleResetGame(conn)
 		case "remove_player":
 			h.handleRemovePlayer(conn, msg)
+		case "quiz_start":
+			h.handleQuizStart(conn)
+		case "quiz_answer":
+			h.handleQuizAnswer(conn, playerID, msg)
+		case "quiz_judge":
+			h.handleQuizJudge(conn, msg)
+		case "quiz_next":
+			h.handleQuizNext(conn)
 		}
 	}
 }
@@ -310,4 +318,109 @@ func (h *Handler) handleRemovePlayer(conn *websocket.Conn, msg *Message) {
 		playerConn.Close()
 	}
 	h.mutex.Unlock()
+}
+
+func (h *Handler) handleQuizStart(conn *websocket.Conn) {
+	question := h.server.StartQuizQuestion()
+	if question == nil {
+		h.sendError(conn, "No questions available")
+		return
+	}
+
+	h.broadcastQuizQuestion(question)
+}
+
+func (h *Handler) handleQuizAnswer(conn *websocket.Conn, playerID string, msg *Message) {
+	payload, ok := msg.Payload.(map[string]any)
+	if !ok {
+		h.sendError(conn, "Invalid payload")
+		return
+	}
+
+	answer, _ := payload["answer"].(string)
+	if answer == "" {
+		return
+	}
+
+	playerAnswer := h.server.SubmitAnswer(playerID, answer)
+	if playerAnswer != nil {
+		h.broadcastQuizAnswerUpdate(playerAnswer)
+	}
+}
+
+func (h *Handler) handleQuizJudge(conn *websocket.Conn, msg *Message) {
+	payload, ok := msg.Payload.(map[string]any)
+	if !ok {
+		return
+	}
+
+	playerID, _ := payload["playerId"].(string)
+	correctStr, _ := payload["correct"].(string)
+	if playerID == "" || correctStr == "" {
+		return
+	}
+
+	correct := correctStr == "true" || correctStr == "1"
+	isFirstCorrect := h.server.JudgeAnswer(playerID, correct)
+
+	if isFirstCorrect {
+		quizState := h.server.GetQuizState()
+		if quizState != nil {
+			if playerAnswer, exists := quizState.Answers[playerID]; exists {
+				h.broadcastQuizAnswerUpdate(playerAnswer)
+			}
+		}
+	}
+}
+
+func (h *Handler) handleQuizNext(conn *websocket.Conn) {
+	question := h.server.NextQuizQuestion()
+	if question != nil {
+		h.broadcastQuizQuestion(question)
+	}
+}
+
+func (h *Handler) broadcastQuizQuestion(question *game.Question) {
+	payload := map[string]any{
+		"id":       question.ID,
+		"type":     string(question.Type),
+		"question": question.Question,
+		"options":  question.Options,
+	}
+
+	msg := Message{
+		Type:    "quiz_question",
+		Payload: payload,
+	}
+
+	h.broadcast(msg)
+}
+
+func (h *Handler) broadcastQuizAnswerUpdate(playerAnswer *game.PlayerAnswer) {
+	// Find player
+	var playerName string
+	var playerColor string
+	for _, p := range h.server.GetPlayers() {
+		if p.ID == playerAnswer.PlayerID {
+			playerName = p.Name
+			playerColor = p.Color
+			break
+		}
+	}
+
+	payload := map[string]any{
+		"playerId":    playerAnswer.PlayerID,
+		"playerName":  playerName,
+		"playerColor":  playerColor,
+		"answer":      playerAnswer.Answer,
+		"status":      string(playerAnswer.Status),
+		"isWinner":    playerAnswer.IsWinner,
+	}
+
+	msg := Message{
+		Type:    "quiz_answer_update",
+		Payload: payload,
+	}
+
+	h.broadcast(msg)
 }

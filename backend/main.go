@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/yockii/lan_qr/backend/game"
+	"github.com/yockii/lan_qr/backend/quiz"
 	"github.com/yockii/lan_qr/backend/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -38,6 +39,16 @@ func main() {
 	app.Use(recover.New())
 
 	gameServer := game.NewGameServer()
+
+	// Try to load question bank
+	questionBankPath := "questions.txt"
+	if qb, err := quiz.LoadQuestionBank(questionBankPath); err == nil {
+		gameServer.SetQuestionBank(qb)
+		log.Printf("Loaded question bank, mode: quiz")
+	} else {
+		log.Printf("No question bank found (%v), mode: buzzer", err)
+	}
+
 	wsHandler := websocket.NewHandler(gameServer)
 	wsHandler.RegisterRoutes(app)
 
