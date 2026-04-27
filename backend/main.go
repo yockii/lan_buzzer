@@ -6,6 +6,7 @@ import (
 	"log"
 	"os/exec"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/yockii/lan_qr/backend/game"
@@ -62,7 +63,7 @@ func main() {
 		}
 
 		// Set content type based on file extension
-		c.Set("Content-Type", getContentType(path))
+		c.Type(getContentType(path))
 
 		return c.Send(data)
 	})
@@ -106,21 +107,33 @@ func openBrowser(url string) {
 }
 
 func getContentType(path string) string {
-	if len(path) > 4 {
-		switch path[len(path)-4:] {
+	// Check file extension
+	if idx := strings.LastIndex(path, "."); idx != -1 {
+		ext := path[idx:]
+		switch ext {
 		case ".html":
-			return "text/html"
+			return "text/html; charset=utf-8"
 		case ".css":
-			return "text/css"
+			return "text/css; charset=utf-8"
 		case ".js":
-			return "application/javascript"
+			return "application/javascript; charset=utf-8"
+		case ".json":
+			return "application/json; charset=utf-8"
 		case ".png":
 			return "image/png"
-		case ".jpg":
+		case ".jpg", ".jpeg":
 			return "image/jpeg"
 		case ".svg":
 			return "image/svg+xml"
+		case ".ico":
+			return "image/x-icon"
+		case ".woff":
+			return "font/woff"
+		case ".woff2":
+			return "font/woff2"
+		case ".ttf":
+			return "font/ttf"
 		}
 	}
-	return "text/plain"
+	return "text/plain; charset=utf-8"
 }
