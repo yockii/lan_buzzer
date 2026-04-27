@@ -37,6 +37,36 @@ cd backend && go test ./...
 
 ## Architecture
 
+### Game Modes
+
+The system supports two game modes:
+
+1. **Buzzer Mode**: Players race to buzz in first. WebSocket events: `buzz`, `buzz_result`, `state_changed`
+2. **Quiz Mode**: Players answer questions from a question bank. WebSocket events: `quiz_start`, `quiz_question`, `quiz_answer`, `quiz_judge`, `quiz_next`, `quiz_answer_update`
+
+Mode is determined by presence of `questions.txt` file in the backend directory.
+
+### Quiz Mode Components
+
+- **Backend**:
+  - `backend/quiz/`: Question parsing and bank management
+  - `backend/game/types.go`: QuizState, PlayerAnswer, AnswerStatus types
+  - `backend/game/server.go`: Quiz mode logic in GameServer
+
+- **Frontend Host**:
+  - `frontend/src/host/components/QuizDisplay.vue`: Shows questions to host
+  - `frontend/src/host/components/PlayerList.vue`: Shows player answers with manual judging
+
+- **Frontend Player**:
+  - `frontend/src/player/components/QuizAnswer.vue`: Player interface for answering questions
+
+### Question Format
+
+Questions are stored in `questions.txt` with pipe-separated values:
+- `[单选]`: Single choice - question|optionA|optionB|optionC|optionD|answer
+- `[判断]`: True/false - question|answer
+- `[问答]`: Open-ended - question|answer
+
 ### Backend (Go + Fiber v2)
 
 - `backend/main.go` - Entry point, serves frontend, auto-opens browser
