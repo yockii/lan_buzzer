@@ -80,6 +80,8 @@ func (h *Handler) handleJoin(conn *websocket.Conn, playerID string, msg *Message
 	name, _ := payload["name"].(string)
 	deviceType, _ := payload["deviceType"].(string)
 
+	log.Printf("Player join: name=%s, id=%s, device=%s", name, playerID, deviceType)
+
 	if name == "" {
 		h.sendError(conn, "Name is required")
 		return
@@ -92,6 +94,13 @@ func (h *Handler) handleJoin(conn *websocket.Conn, playerID string, msg *Message
 	h.mutex.Lock()
 	h.clients[playerID] = conn
 	h.mutex.Unlock()
+
+	// 如果是主持人，不加入玩家列表
+	if name == "__HOST__" {
+		log.Printf("Host connected: %s", playerID)
+		h.broadcastState(conn)
+		return
+	}
 
 	existingColors := make(map[string]string)
 	for _, p := range h.server.GetPlayers() {
@@ -114,18 +123,22 @@ func (h *Handler) handleJoin(conn *websocket.Conn, playerID string, msg *Message
 
 func (h *Handler) handleBuzz(conn *websocket.Conn, playerID string) {
 	state := h.server.GetState()
+	log.Printf("Buzz received from %s, state=%s", playerID, state)
 
 	if state == game.StateWaiting {
+		log.Printf("Early buzz warning sent to %s", playerID)
 		h.sendEarlyBuzzWarning(conn)
 		return
 	}
 
 	if state == game.StateLocked {
+		log.Printf("Game locked, ignoring buzz from %s", playerID)
 		return
 	}
 
 	if h.server.RecordBuzz(playerID) {
 		winner := h.server.GetWinner()
+		log.Printf("Buzz result: winner=%s", winner.Name)
 		h.broadcastBuzzResult(winner)
 	}
 }
@@ -225,8 +238,11 @@ func (h *Handler) broadcast(msg Message) {
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()
 
+	log.Printf("Broadcasting message type=%s to %d clients", msg.Type, len(h.clients))
 	for _, conn := range h.clients {
-		conn.WriteJSON(msg)
+		if err := conn.WriteJSON(msg); err != nil {
+			log.Printf("Error writing to client: %v", err)
+		}
 	}
 }
 

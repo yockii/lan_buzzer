@@ -119,6 +119,14 @@ onMounted(async () => {
     }
   })
 
+  ws.on('open', () => {
+    // 主持人端也发送join消息，但标记为主持人
+    ws?.send('join', {
+      name: '__HOST__',
+      deviceType: 'desktop'
+    })
+  })
+
   ws.connect()
 })
 
