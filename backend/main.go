@@ -5,6 +5,9 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"os/exec"
+	"runtime"
+	"time"
 
 	"github.com/yockii/lan_qr/backend/game"
 	"github.com/yockii/lan_qr/backend/websocket"
@@ -47,6 +50,40 @@ func main() {
 		Browse:     false,
 	})
 
-	log.Println("Server starting on http://localhost:3000")
-	log.Fatal(app.Listen(":3000"))
+	// Start server in background
+	go func() {
+		log.Println("Server starting on http://localhost:3000")
+		if err := app.Listen(":3000"); err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	// Give server time to start
+	time.Sleep(500 * time.Millisecond)
+
+	// Open browser
+	openBrowser("http://localhost:3000")
+
+	// Keep program running
+	select {}
+}
+
+func openBrowser(url string) {
+	var cmd *exec.Cmd
+
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "linux":
+		cmd = exec.Command("xdg-open", url)
+	default:
+		log.Printf("Unsupported platform for auto-browser launch")
+		return
+	}
+
+	if err := cmd.Start(); err != nil {
+		log.Printf("Failed to open browser: %v", err)
+	}
 }
