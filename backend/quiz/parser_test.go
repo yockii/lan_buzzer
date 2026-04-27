@@ -65,3 +65,13 @@ func TestParseQuestionsInvalidFormat(t *testing.T) {
         t.Error("Expected error for invalid format, got nil")
     }
 }
+
+func TestParseQuestionsMissingTypeHeader(t *testing.T) {
+    input := "什么是CPU?|A.中央处理器|B.显卡|A"
+    reader := strings.NewReader(input)
+
+    _, err := ParseQuestions(reader)
+    if err == nil {
+        t.Error("Expected error for question without type header")
+    }
+}

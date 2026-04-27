@@ -45,6 +45,11 @@ func ParseQuestions(file io.Reader) ([]*Question, error) {
             return nil, fmt.Errorf("line %d: invalid format, expected at least 2 fields separated by |", lineNum)
         }
 
+        // Check if type header has been set
+        if currentType == "" {
+            return nil, fmt.Errorf("line %d: question appears before type header", lineNum)
+        }
+
         question := &Question{
             ID:       fmt.Sprintf("q%d", lineNum),
             Type:     currentType,
