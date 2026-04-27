@@ -1,28 +1,30 @@
 <template>
   <div class="w-full h-full bg-slate-900 text-white flex items-center justify-center p-8">
-    <div class="text-6xl mb-8">🎯</div>
-    <div class="text-3xl font-bold mb-4">输入你的名字</div>
-    <div class="text-slate-400 mb-8">将在抢答时显示</div>
+    <div class="flex flex-col items-center w-full max-w-md">
+      <div class="text-6xl mb-8">🎯</div>
+      <div class="text-3xl font-bold mb-4">输入你的名字</div>
+      <div class="text-slate-400 mb-8">将在抢答时显示</div>
 
-    <input
-      v-model="name"
-      @keyup.enter="handleSubmit"
-      type="text"
-      placeholder="例如：张三"
-      class="w-full max-w-md px-6 py-4 text-xl bg-slate-800 border-2 border-slate-700 rounded-lg text-white text-center focus:outline-none focus:border-blue-500"
-      maxlength="20"
-    />
+      <input
+        v-model="name"
+        @keyup.enter="handleSubmit"
+        type="text"
+        placeholder="例如：张三"
+        class="w-full px-6 py-4 text-xl bg-slate-800 border-2 border-slate-700 rounded-lg text-white text-center focus:outline-none focus:border-blue-500"
+        maxlength="20"
+      />
 
-    <button
-      @click="handleSubmit"
-      :disabled="!name.trim()"
-      class="w-full max-w-md mt-6 px-8 py-4 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-lg text-xl font-semibold transition-colors"
-    >
-      进入抢答
-    </button>
+      <button
+        @click="handleSubmit"
+        :disabled="!name.trim()"
+        class="w-full mt-6 px-8 py-4 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-lg text-xl font-semibold transition-colors"
+      >
+        进入抢答
+      </button>
 
-    <div v-if="error" class="mt-4 text-red-400">
-      {{ error }}
+      <div v-if="error" class="mt-4 text-red-400">
+        {{ error }}
+      </div>
     </div>
   </div>
 </template>

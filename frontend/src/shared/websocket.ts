@@ -6,6 +6,7 @@ export class WebSocketClient {
   private reconnectTimer: number | null = null
   private reconnectAttempts = 0
   private maxReconnectAttempts = 5
+  private openHandler: (() => void) | null = null
 
   public connected: Ref<boolean> = ref(false)
   public messageHandlers: Map<string, (payload: any) => void> = new Map()
@@ -23,6 +24,9 @@ export class WebSocketClient {
       console.log('WebSocket connected')
       this.connected.value = true
       this.reconnectAttempts = 0
+      if (this.openHandler) {
+        this.openHandler()
+      }
     }
 
     this.ws.onclose = () => {
@@ -88,10 +92,18 @@ export class WebSocketClient {
   }
 
   on(type: string, handler: (payload: any) => void) {
-    this.messageHandlers.set(type, handler)
+    if (type === 'open') {
+      this.openHandler = handler
+    } else {
+      this.messageHandlers.set(type, handler)
+    }
   }
 
   off(type: string) {
-    this.messageHandlers.delete(type)
+    if (type === 'open') {
+      this.openHandler = null
+    } else {
+      this.messageHandlers.delete(type)
+    }
   }
 }
