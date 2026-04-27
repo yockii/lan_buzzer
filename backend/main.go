@@ -2,8 +2,10 @@ package main
 
 import (
 	"embed"
+	"fmt"
 	"io/fs"
 	"log"
+	"net"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -38,6 +40,15 @@ func main() {
 	gameServer := game.NewGameServer()
 	wsHandler := websocket.NewHandler(gameServer)
 	wsHandler.RegisterRoutes(app)
+
+	// API endpoint to get server info
+	app.Get("/api/info", func(c *fiber.Ctx) error {
+		localIP := getLocalIP()
+		return c.JSON(fiber.Map{
+			"serverUrl": fmt.Sprintf("http://%s:3000", localIP),
+			"localIP":  localIP,
+		})
+	})
 
 	// Serve frontend static files
 	frontendDist, err := fs.Sub(frontendFS, "embed/dist")
@@ -107,6 +118,31 @@ func openBrowser(url string) {
 	if err := cmd.Start(); err != nil {
 		log.Printf("Failed to open browser: %v", err)
 	}
+}
+
+func getLocalIP() string {
+	// Get all network interfaces
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		log.Printf("Failed to get interfaces: %v", err)
+		return "localhost"
+	}
+
+	// Find the first non-loopback IPv4 address
+	for _, addr := range addrs {
+		var ipnet *net.IPNet
+		var ok bool
+		if ipnet, ok = addr.(*net.IPNet); ok {
+			// Check if it's not loopback
+			if !ipnet.IP.IsLoopback() && ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+		_ = ok
+	}
+
+	// Fallback to localhost
+	return "localhost"
 }
 
 func getContentType(path string) string {

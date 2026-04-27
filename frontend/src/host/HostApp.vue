@@ -1,9 +1,14 @@
 <template>
   <div class="w-full h-full bg-slate-900 text-white flex flex-col">
     <div class="flex justify-between items-center px-6 py-4 bg-slate-800">
-      <div class="text-sm text-slate-400">{{ serverUrl }}</div>
-      <div class="bg-slate-700 px-4 py-2 rounded-lg text-sm">
-        📱 二维码（手机扫码加入）
+      <div class="text-sm text-slate-400">{{ displayUrl }}</div>
+      <div class="flex items-center gap-4">
+        <div v-if="qrCodeUrl" class="relative">
+          <img :src="qrCodeUrl" alt="QR Code" class="w-20 h-20 bg-white rounded" />
+          <div class="absolute -bottom-1 left-0 bg-slate-700 text-xs px-2 py-1 rounded">
+            手机扫码
+          </div>
+        </div>
       </div>
     </div>
 
@@ -36,6 +41,7 @@ import PlayerList from './components/PlayerList.vue'
 const gameState = ref<'waiting' | 'ready' | 'locked'>('waiting')
 const players = ref<Player[]>([])
 const winner = ref<Player | null>(null)
+const serverInfo = ref<{ serverUrl: string; localIP: string } | null>(null)
 
 const wsUrl = computed(() => {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -43,13 +49,32 @@ const wsUrl = computed(() => {
   return `${protocol}//${host}/ws`
 })
 
-const serverUrl = computed(() => {
-  return window.location.host
+const displayUrl = computed(() => {
+  if (serverInfo.value) {
+    return serverInfo.value.serverUrl
+  }
+  return 'localhost:3000'
+})
+
+const qrCodeUrl = computed(() => {
+  if (serverInfo.value) {
+    // 使用 goqr.me API 生成二维码
+    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(serverInfo.value.serverUrl)}`
+  }
+  return null
 })
 
 let ws: WebSocketClient | null = null
 
-onMounted(() => {
+onMounted(async () => {
+  // 获取服务器信息
+  try {
+    const response = await fetch('/api/info')
+    serverInfo.value = await response.json()
+  } catch (error) {
+    console.error('Failed to get server info:', error)
+  }
+
   ws = new WebSocketClient(wsUrl.value)
 
   ws.on('state_changed', (payload) => {
