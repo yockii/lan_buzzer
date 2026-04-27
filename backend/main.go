@@ -45,26 +45,29 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Use a simple file server for static files
+	// Handle static file serving
 	app.Get("/*", func(c *fiber.Ctx) error {
-		path := c.Params("*")
-		if path == "" {
-			path = "index.html"
+		requestPath := c.Params("*")
+
+		// Default to index.html for root or empty path
+		if requestPath == "" || requestPath == "/" {
+			requestPath = "index.html"
 		}
 
-		// Read file from embedded FS
-		data, err := fs.ReadFile(frontendDist, path)
+		// Try to read the requested file
+		data, err := fs.ReadFile(frontendDist, strings.TrimPrefix(requestPath, "/"))
 		if err != nil {
-			// Try index.html as fallback
+			// Fall back to index.html for SPA routing
 			data, err = fs.ReadFile(frontendDist, "index.html")
 			if err != nil {
-				return c.Status(404).SendString("File not found")
+				return c.Status(404).SendString("404 - Page Not Found")
 			}
 		}
 
-		// Set content type based on file extension
-		c.Type(getContentType(path))
+		// Set proper Content-Type header
+		c.Set("Content-Type", getContentType(requestPath))
 
+		// Return the file content
 		return c.Send(data)
 	})
 
@@ -107,17 +110,17 @@ func openBrowser(url string) {
 }
 
 func getContentType(path string) string {
-	// Check file extension
+	// Extract file extension
 	if idx := strings.LastIndex(path, "."); idx != -1 {
-		ext := path[idx:]
+		ext := strings.ToLower(path[idx:])
 		switch ext {
-		case ".html":
+		case ".html", ".htm":
 			return "text/html; charset=utf-8"
 		case ".css":
 			return "text/css; charset=utf-8"
 		case ".js":
 			return "application/javascript; charset=utf-8"
-		case ".json":
+		case ".json", ".map":
 			return "application/json; charset=utf-8"
 		case ".png":
 			return "image/png"
@@ -133,7 +136,9 @@ func getContentType(path string) string {
 			return "font/woff2"
 		case ".ttf":
 			return "font/ttf"
+		default:
+			return "text/plain; charset=utf-8"
 		}
 	}
-	return "text/plain; charset=utf-8"
+	return "text/html; charset=utf-8"  // Default to HTML for SPA
 }
