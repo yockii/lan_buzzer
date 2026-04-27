@@ -4,7 +4,6 @@ import (
 	"embed"
 	"io/fs"
 	"log"
-	"net/http"
 	"os/exec"
 	"runtime"
 	"time"
@@ -45,9 +44,27 @@ func main() {
 		log.Fatal(err)
 	}
 
-	app.Static("/", "", fiber.Static{
-		FileSystem: http.FS(frontendDist),
-		Browse:     false,
+	// Use a simple file server for static files
+	app.Get("/*", func(c *fiber.Ctx) error {
+		path := c.Params("*")
+		if path == "" {
+			path = "index.html"
+		}
+
+		// Read file from embedded FS
+		data, err := fs.ReadFile(frontendDist, path)
+		if err != nil {
+			// Try index.html as fallback
+			data, err = fs.ReadFile(frontendDist, "index.html")
+			if err != nil {
+				return c.Status(404).SendString("File not found")
+			}
+		}
+
+		// Set content type based on file extension
+		c.Set("Content-Type", getContentType(path))
+
+		return c.Send(data)
 	})
 
 	// Start server in background
@@ -86,4 +103,24 @@ func openBrowser(url string) {
 	if err := cmd.Start(); err != nil {
 		log.Printf("Failed to open browser: %v", err)
 	}
+}
+
+func getContentType(path string) string {
+	if len(path) > 4 {
+		switch path[len(path)-4:] {
+		case ".html":
+			return "text/html"
+		case ".css":
+			return "text/css"
+		case ".js":
+			return "application/javascript"
+		case ".png":
+			return "image/png"
+		case ".jpg":
+			return "image/jpeg"
+		case ".svg":
+			return "image/svg+xml"
+		}
+	}
+	return "text/plain"
 }
