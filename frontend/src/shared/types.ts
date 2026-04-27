@@ -30,3 +30,28 @@ export interface BuzzResultPayload {
 export interface ErrorPayload {
   message: string
 }
+
+export type QuestionType = 'single_choice' | 'true_false' | 'open_ended'
+
+export interface Question {
+  id: string
+  type: QuestionType
+  question: string
+  options: string[]
+}
+
+export interface QuizAnswerUpdate {
+  playerId: string
+  playerName: string
+  playerColor: string
+  answer: string
+  status: 'pending' | 'correct' | 'incorrect'
+  isWinner: boolean
+}
+
+export interface QuizQuestionMessage {
+  id: string
+  type: QuestionType
+  question: string
+  options: string[]
+}
