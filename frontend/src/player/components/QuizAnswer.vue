@@ -72,42 +72,71 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { WebSocketClient } from '@/shared/websocket'
 import type { Question } from '@/shared/types'
 
 const props = defineProps<{
   playerName: string
-  ws: any
-  connected: boolean
 }>()
 
 const currentQuestion = ref<Question | null>(null)
 const answerSubmitted = ref(false)
 const openAnswer = ref('')
+const connected = ref(false)
+
+const wsUrl = computed(() => {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const host = window.location.host
+  return `${protocol}//${host}/ws`
+})
+
+let ws: WebSocketClient | null = null
+const deviceType = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(navigator.userAgent)
+  ? 'mobile'
+  : 'desktop'
+
+onMounted(() => {
+  const storedName = sessionStorage.getItem('playerName') || props.playerName
+
+  ws = new WebSocketClient(wsUrl.value)
+
+  ws.on('quiz_question', (payload: Question) => {
+    currentQuestion.value = payload
+    answerSubmitted.value = false
+  })
+
+  ws.on('quiz_next', () => {
+    currentQuestion.value = null
+    answerSubmitted.value = false
+  })
+
+  ws.on('quiz_answer_update', () => {
+    answerSubmitted.value = true
+  })
+
+  ws.on('open', () => {
+    connected.value = true
+    ws?.send('join', {
+      name: storedName,
+      deviceType: deviceType
+    })
+  })
+
+  ws.connect()
+})
+
+onUnmounted(() => {
+  if (ws) {
+    ws.disconnect()
+  }
+})
 
 const handleAnswer = (answer: string) => {
-  if (!answer.trim()) return
+  if (!answer.trim() || !ws) return
 
-  props.ws.send('quiz_answer', { answer })
+  ws.send('quiz_answer', { answer })
   answerSubmitted.value = true
   openAnswer.value = ''
 }
-
-// Listen for quiz questions
-props.ws.on('quiz_question', (payload: Question) => {
-  currentQuestion.value = payload
-  answerSubmitted.value = false
-})
-
-// Listen for next question (reset state)
-props.ws.on('quiz_next', () => {
-  currentQuestion.value = null
-  answerSubmitted.value = false
-})
-
-// Clean up WebSocket listeners on unmount
-onUnmounted(() => {
-  props.ws.off('quiz_question')
-  props.ws.off('quiz_next')
-})
 </script>
