@@ -21,7 +21,10 @@
       </div>
     </div>
 
+    <QuizDisplay v-if="gameMode === 'quiz'" :ws="ws" />
+
     <BuzzerDisplay
+      v-else
       :game-state="gameState"
       :winner="winner"
     />
@@ -33,7 +36,9 @@
     />
 
     <PlayerList
-      :players="players"
+      :players="enhancedPlayers"
+      :is-quiz-mode="gameMode === 'quiz'"
+      :ws="ws"
       @remove-player="handleRemovePlayer"
     />
   </div>
@@ -42,14 +47,17 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { WebSocketClient } from '@/shared/websocket'
-import type { Player } from '@/shared/types'
+import type { Player, Question, QuizAnswerUpdate } from '@/shared/types'
 import BuzzerDisplay from './components/BuzzerDisplay.vue'
+import QuizDisplay from './components/QuizDisplay.vue'
 import ControlPanel from './components/ControlPanel.vue'
 import PlayerList from './components/PlayerList.vue'
 
 const gameState = ref<'waiting' | 'ready' | 'locked'>('waiting')
+const gameMode = ref<'buzzer' | 'quiz'>('buzzer')
 const players = ref<Player[]>([])
 const winner = ref<Player | null>(null)
+const playerAnswers = ref<Map<string, QuizAnswerUpdate>>(new Map())
 const serverInfo = ref<{ serverUrl: string; localIP: string; allIPs: string[] } | null>(null)
 const selectedIP = ref<string>('')
 
@@ -105,6 +113,10 @@ onMounted(async () => {
 
   ws.on('state_changed', (payload) => {
     gameState.value = payload.state
+    if (payload.state === 'waiting') {
+      gameMode.value = 'buzzer'
+      playerAnswers.value.clear()
+    }
   })
 
   ws.on('player_list', (payload) => {
@@ -117,6 +129,14 @@ onMounted(async () => {
     } else {
       winner.value = null
     }
+  })
+
+  ws.on('quiz_question', (payload: Question) => {
+    gameMode.value = 'quiz'
+  })
+
+  ws.on('quiz_answer_update', (payload: QuizAnswerUpdate) => {
+    playerAnswers.value.set(payload.playerId, payload)
   })
 
   ws.on('open', () => {
@@ -152,6 +172,20 @@ const handleReset = () => {
 const handleRemovePlayer = (playerId: string) => {
   if (ws && confirm('确定要移除这位选手吗？')) {
     ws.send('remove_player', { playerId })
+    // Clean up player's quiz answer
+    playerAnswers.value.delete(playerId)
   }
 }
+
+const enhancedPlayers = computed(() => {
+  return players.value.map(player => {
+    const answer = playerAnswers.value.get(player.id)
+    return {
+      ...player,
+      answer: answer?.answer || '',
+      answerStatus: answer?.status || 'pending',
+      isWinner: answer?.isWinner || false
+    }
+  })
+})
 </script>
