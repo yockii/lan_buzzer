@@ -128,12 +128,25 @@ func getLocalIP() string {
 		return "localhost"
 	}
 
-	// Find the first non-loopback IPv4 address
+	// First pass: look for 192.168.x.x addresses (LAN)
 	for _, addr := range addrs {
 		var ipnet *net.IPNet
 		var ok bool
 		if ipnet, ok = addr.(*net.IPNet); ok {
-			// Check if it's not loopback
+			ip := ipnet.IP.To4()
+			// Check if it's not loopback and is 192.168.x.x
+			if ip != nil && !ipnet.IP.IsLoopback() && ip[0] == 192 && ip[1] == 168 {
+				return ipnet.IP.String()
+			}
+		}
+		_ = ok
+	}
+
+	// Second pass: any non-loopback IPv4 address
+	for _, addr := range addrs {
+		var ipnet *net.IPNet
+		var ok bool
+		if ipnet, ok = addr.(*net.IPNet); ok {
 			if !ipnet.IP.IsLoopback() && ipnet.IP.To4() != nil {
 				return ipnet.IP.String()
 			}
