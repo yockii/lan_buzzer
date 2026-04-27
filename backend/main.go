@@ -44,9 +44,11 @@ func main() {
 	// API endpoint to get server info
 	app.Get("/api/info", func(c *fiber.Ctx) error {
 		localIP := getLocalIP()
+		allIPs := getAllLocalIPs()
 		return c.JSON(fiber.Map{
 			"serverUrl": fmt.Sprintf("http://%s:3000", localIP),
 			"localIP":  localIP,
+			"allIPs":   allIPs,
 		})
 	})
 
@@ -165,6 +167,35 @@ func getLocalIP() string {
 	// Fallback to localhost
 	log.Println("No suitable address found, using localhost")
 	return "localhost"
+}
+
+func getAllLocalIPs() []string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		log.Printf("Failed to get interfaces: %v", err)
+		return []string{"localhost"}
+	}
+
+	var ips []string
+	for _, addr := range addrs {
+		var ipnet *net.IPNet
+		var ok bool
+		if ipnet, ok = addr.(*net.IPNet); ok {
+			ip := ipnet.IP.To4()
+			// Filter out loopback, link-local (169.254.x.x), and docker/VM IPs
+			if ip != nil && !ipnet.IP.IsLoopback() && ip[0] != 169 && ip[0] != 172 {
+				ips = append(ips, ipnet.IP.String())
+			}
+		}
+		_ = ok
+	}
+
+	// Always add localhost as fallback
+	if len(ips) == 0 {
+		ips = append(ips, "localhost")
+	}
+
+	return ips
 }
 
 func getContentType(path string) string {

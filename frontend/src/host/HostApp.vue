@@ -1,7 +1,18 @@
 <template>
   <div class="w-full h-full bg-slate-900 text-white flex flex-col">
     <div class="flex justify-between items-center px-6 py-4">
-      <div class="text-sm text-slate-400">{{ displayUrl }}</div>
+      <div class="flex items-center gap-4">
+        <select
+          v-if="allIPs.length > 1"
+          v-model="selectedIP"
+          class="bg-slate-700 text-white text-sm px-3 py-2 rounded border border-slate-600 focus:outline-none focus:border-slate-500"
+        >
+          <option v-for="ip in allIPs" :key="ip" :value="ip">
+            {{ ip }}
+          </option>
+        </select>
+        <div v-else class="text-sm text-slate-400">{{ displayUrl }}</div>
+      </div>
       <div v-if="qrCodeUrl" class="flex flex-col items-center gap-1">
         <img :src="qrCodeUrl" alt="QR Code" class="w-20 h-20 bg-white rounded" />
         <div class="bg-slate-700 text-xs px-2 py-1 rounded">
@@ -39,7 +50,8 @@ import PlayerList from './components/PlayerList.vue'
 const gameState = ref<'waiting' | 'ready' | 'locked'>('waiting')
 const players = ref<Player[]>([])
 const winner = ref<Player | null>(null)
-const serverInfo = ref<{ serverUrl: string; localIP: string } | null>(null)
+const serverInfo = ref<{ serverUrl: string; localIP: string; allIPs: string[] } | null>(null)
+const selectedIP = ref<string>('')
 
 const wsUrl = computed(() => {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -47,7 +59,17 @@ const wsUrl = computed(() => {
   return `${protocol}//${host}/ws`
 })
 
+const allIPs = computed(() => {
+  if (serverInfo.value?.allIPs) {
+    return serverInfo.value.allIPs
+  }
+  return []
+})
+
 const displayUrl = computed(() => {
+  if (selectedIP.value) {
+    return `http://${selectedIP.value}:3000`
+  }
   if (serverInfo.value) {
     return serverInfo.value.serverUrl
   }
@@ -55,8 +77,10 @@ const displayUrl = computed(() => {
 })
 
 const qrCodeUrl = computed(() => {
+  if (selectedIP.value) {
+    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(displayUrl.value)}`
+  }
   if (serverInfo.value) {
-    // 使用 goqr.me API 生成二维码
     return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(serverInfo.value.serverUrl)}`
   }
   return null
@@ -69,6 +93,10 @@ onMounted(async () => {
   try {
     const response = await fetch('/api/info')
     serverInfo.value = await response.json()
+    // 默认选择服务器推荐的IP
+    if (serverInfo.value.localIP) {
+      selectedIP.value = serverInfo.value.localIP
+    }
   } catch (error) {
     console.error('Failed to get server info:', error)
   }
