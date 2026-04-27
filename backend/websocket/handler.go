@@ -60,6 +60,12 @@ func (h *Handler) handleConnection(conn *websocket.Conn) {
 			h.handleJoin(conn, playerID, msg, player)
 		case "buzz":
 			h.handleBuzz(conn, playerID)
+		case "start_game":
+			h.handleStartGame(conn)
+		case "reset_game":
+			h.handleResetGame(conn)
+		case "remove_player":
+			h.handleRemovePlayer(conn, msg)
 		}
 	}
 }
@@ -258,4 +264,34 @@ func (h *Handler) ResetGame() {
 	}
 
 	h.broadcast(msg)
+}
+
+func (h *Handler) handleStartGame(conn *websocket.Conn) {
+	h.StartGame()
+}
+
+func (h *Handler) handleResetGame(conn *websocket.Conn) {
+	h.ResetGame()
+}
+
+func (h *Handler) handleRemovePlayer(conn *websocket.Conn, msg *Message) {
+	payload, ok := msg.Payload.(map[string]any)
+	if !ok {
+		return
+	}
+
+	playerID, _ := payload["playerId"].(string)
+	if playerID == "" {
+		return
+	}
+
+	h.server.RemovePlayer(playerID)
+	h.broadcastPlayerList()
+
+	// Disconnect the player
+	h.mutex.Lock()
+	if playerConn, exists := h.clients[playerID]; exists {
+		playerConn.Close()
+	}
+	h.mutex.Unlock()
 }

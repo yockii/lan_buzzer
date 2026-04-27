@@ -18,7 +18,10 @@
       @reset="handleReset"
     />
 
-    <PlayerList :players="players" />
+    <PlayerList
+      :players="players"
+      @remove-player="handleRemovePlayer"
+    />
   </div>
 </template>
 
@@ -84,6 +87,12 @@ const handleReset = () => {
   if (ws) {
     ws.send('reset_game', {})
     winner.value = null
+  }
+}
+
+const handleRemovePlayer = (playerId: string) => {
+  if (ws && confirm('确定要移除这位选手吗？')) {
+    ws.send('remove_player', { playerId })
   }
 }
 </script>

@@ -13,6 +13,12 @@
         ></span>
         {{ player.name }}
         <span class="ml-1 text-xs">{{ player.deviceType === 'desktop' ? '💻' : '📱' }}</span>
+        <button
+          @click="$emit('remove-player', player.id)"
+          class="ml-2 text-slate-500 hover:text-red-400 transition-colors"
+        >
+          ×
+        </button>
       </span>
     </div>
   </div>
@@ -23,5 +29,9 @@ import type { Player } from '@/shared/types'
 
 defineProps<{
   players: Player[]
+}>()
+
+defineEmits<{
+  'remove-player': [playerId: string]
 }>()
 </script>
