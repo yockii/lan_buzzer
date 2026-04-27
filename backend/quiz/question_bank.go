@@ -3,57 +3,90 @@ package quiz
 import (
 	"math/rand"
 	"os"
-	"time"
+	"sync"
 )
 
 // QuestionBank manages a collection of questions
 type QuestionBank struct {
-	questions []*Question
-	askedIDs  map[string]bool
+	questions    []*Question
+	askedIDs     map[string]bool
+	availableIDs []string
+	mu           sync.RWMutex
 }
 
 // NewQuestionBank creates a new question bank
 func NewQuestionBank(questions []*Question) *QuestionBank {
+	availableIDs := make([]string, len(questions))
+	for i, q := range questions {
+		availableIDs[i] = q.ID
+	}
+
 	return &QuestionBank{
-		questions: questions,
-		askedIDs:  make(map[string]bool),
+		questions:    questions,
+		askedIDs:     make(map[string]bool),
+		availableIDs: availableIDs,
 	}
 }
 
 // HasQuestions returns true if there are questions available
 func (qb *QuestionBank) HasQuestions() bool {
-	return len(qb.questions) > 0
+	qb.mu.RLock()
+	defer qb.mu.RUnlock()
+	return len(qb.availableIDs) > 0
 }
 
 // GetRandomQuestion returns a random unasked question
 func (qb *QuestionBank) GetRandomQuestion() *Question {
-	// Filter unasked questions
-	var unasked []*Question
-	for _, q := range qb.questions {
-		if !qb.askedIDs[q.ID] {
-			unasked = append(unasked, q)
-		}
-	}
+	qb.mu.RLock()
+	defer qb.mu.RUnlock()
 
-	// Still no questions (empty bank or all asked)
-	if len(unasked) == 0 {
+	// No available questions
+	if len(qb.availableIDs) == 0 {
 		return nil
 	}
 
-	// Return random question
-	rand.Seed(time.Now().UnixNano())
-	idx := rand.Intn(len(unasked))
-	return unasked[idx]
+	// Return random question from available ones
+	idx := rand.Intn(len(qb.availableIDs))
+	questionID := qb.availableIDs[idx]
+
+	// Find the question object
+	for _, q := range qb.questions {
+		if q.ID == questionID {
+			return q
+		}
+	}
+
+	return nil
 }
 
 // MarkAsked marks a question as asked
 func (qb *QuestionBank) MarkAsked(id string) {
+	qb.mu.Lock()
+	defer qb.mu.Unlock()
+
 	qb.askedIDs[id] = true
+
+	// Remove from availableIDs
+	for i, availID := range qb.availableIDs {
+		if availID == id {
+			qb.availableIDs = append(qb.availableIDs[:i], qb.availableIDs[i+1:]...)
+			break
+		}
+	}
 }
 
 // ResetAsked clears the asked list
 func (qb *QuestionBank) ResetAsked() {
+	qb.mu.Lock()
+	defer qb.mu.Unlock()
+
 	qb.askedIDs = make(map[string]bool)
+
+	// Reset availableIDs to include all question IDs
+	qb.availableIDs = make([]string, len(qb.questions))
+	for i, q := range qb.questions {
+		qb.availableIDs[i] = q.ID
+	}
 }
 
 // LoadFromFile loads questions from a file

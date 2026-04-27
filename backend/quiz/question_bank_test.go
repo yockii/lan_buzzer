@@ -1,14 +1,8 @@
 package quiz
 
 import (
-	"math/rand"
 	"testing"
-	"time"
 )
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
 
 func TestQuestionBank(t *testing.T) {
 	questions := []*Question{
