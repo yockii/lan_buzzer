@@ -1,6 +1,6 @@
 <template>
   <div class="w-full h-full bg-slate-900 text-white flex flex-col">
-    <div class="flex justify-between items-center px-6 py-4 bg-slate-800">
+    <div class="flex justify-between items-center px-6 py-4">
       <div class="text-sm text-slate-400">{{ displayUrl }}</div>
       <div v-if="qrCodeUrl" class="flex flex-col items-center gap-1">
         <img :src="qrCodeUrl" alt="QR Code" class="w-20 h-20 bg-white rounded" />

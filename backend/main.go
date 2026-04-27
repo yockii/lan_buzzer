@@ -128,6 +128,12 @@ func getLocalIP() string {
 		return "localhost"
 	}
 
+	// Log all addresses for debugging
+	log.Println("All network addresses:")
+	for _, addr := range addrs {
+		log.Printf("  - %v", addr)
+	}
+
 	// First pass: look for 192.168.x.x addresses (LAN)
 	for _, addr := range addrs {
 		var ipnet *net.IPNet
@@ -136,6 +142,7 @@ func getLocalIP() string {
 			ip := ipnet.IP.To4()
 			// Check if it's not loopback and is 192.168.x.x
 			if ip != nil && !ipnet.IP.IsLoopback() && ip[0] == 192 && ip[1] == 168 {
+				log.Printf("Selected 192.168.x.x address: %s", ipnet.IP.String())
 				return ipnet.IP.String()
 			}
 		}
@@ -148,6 +155,7 @@ func getLocalIP() string {
 		var ok bool
 		if ipnet, ok = addr.(*net.IPNet); ok {
 			if !ipnet.IP.IsLoopback() && ipnet.IP.To4() != nil {
+				log.Printf("Selected fallback address: %s", ipnet.IP.String())
 				return ipnet.IP.String()
 			}
 		}
@@ -155,6 +163,7 @@ func getLocalIP() string {
 	}
 
 	// Fallback to localhost
+	log.Println("No suitable address found, using localhost")
 	return "localhost"
 }
 
