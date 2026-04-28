@@ -11,6 +11,28 @@
 - ⚡ 单文件运行，无需安装依赖
 - 🔒 局域网通信，安全可靠
 
+## 🆢 题库模式（新功能）
+
+想要题库答题功能？查看 **[feature/question-bank](https://github.com/yockii/lan_buzzer/tree/feature/question-bank)** 分支！
+
+**题库模式额外功能**：
+- ✅ 支持题库文件（单选、判断、问答）
+- 🤖 自动判断单选题和判断题
+- 👆 主持人可手动覆盖任何答案
+- 👑 自动显示最先答对的选手
+- 📊 3列优化布局（选手两侧，题目中间）
+- 🔄 题目去重，避免重复
+
+**使用题库模式**：
+```bash
+# 切换到题库分支
+git checkout feature/question-bank
+
+# 或直接下载预编译版本
+# 访问：https://github.com/yockii/lan_buzzer/tree/feature/question-bank
+# 查看详细文档
+```
+
 ## 使用方法
 
 1. 下载 `lan-buzzer.exe`（Windows）或 `lan-buzzer`（Linux/Mac）
@@ -39,6 +61,11 @@
 # 运行
 ./build/lan-buzzer.exe
 ```
+
+## 分支说明
+
+- **main**：主分支，基础抢答功能
+- **feature/question-bank**：题库功能分支，包含完整的答题模式
 
 ## License
 
