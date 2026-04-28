@@ -38,8 +38,8 @@
           </select>
           <div v-else class="text-sm text-slate-400">{{ displayUrl }}</div>
         </div>
-        <div v-if="qrCodeUrl" class="flex flex-col items-center gap-1">
-          <img :src="qrCodeUrl" alt="QR Code" class="w-20 h-20 bg-white rounded" />
+        <div v-if="qrCodeData" class="flex flex-col items-center gap-1">
+          <img :src="qrCodeData" alt="QR Code" class="w-20 h-20 bg-white rounded" />
           <div class="bg-slate-700 text-xs px-2 py-1 rounded">
             手机扫码
           </div>
@@ -92,13 +92,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watchEffect } from 'vue'
 import { WebSocketClient } from '@/shared/websocket'
 import type { Player, Question, QuizAnswerUpdate } from '@/shared/types'
 import BuzzerDisplay from './components/BuzzerDisplay.vue'
 import QuizDisplay from './components/QuizDisplay.vue'
 import ControlPanel from './components/ControlPanel.vue'
 import PlayerList from './components/PlayerList.vue'
+import QRCode from 'qrcode'
 
 const gameState = ref<'waiting' | 'ready' | 'locked'>('waiting')
 const gameMode = ref<'buzzer' | 'quiz'>('buzzer')
@@ -108,6 +109,7 @@ const winner = ref<Player | null>(null)
 const playerAnswers = ref<Map<string, QuizAnswerUpdate>>(new Map())
 const serverInfo = ref<{ serverUrl: string; localIP: string; allIPs: string[] } | null>(null)
 const selectedIP = ref<string>('')
+const qrCodeData = ref<string>('')
 
 const wsUrl = computed(() => {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -132,14 +134,27 @@ const displayUrl = computed(() => {
   return 'localhost:3000'
 })
 
-const qrCodeUrl = computed(() => {
-  if (selectedIP.value) {
-    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(displayUrl.value)}`
+// Generate QR code locally using qrcode library
+watchEffect(async () => {
+  if (!displayUrl.value) {
+    qrCodeData.value = ''
+    return
   }
-  if (serverInfo.value) {
-    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(serverInfo.value.serverUrl)}`
+
+  try {
+    const dataURL = await QRCode.toDataURL(displayUrl.value, {
+      width: 200,
+      margin: 1,
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF'
+      }
+    })
+    qrCodeData.value = dataURL
+  } catch (error) {
+    console.error('Failed to generate QR code:', error)
+    qrCodeData.value = ''
   }
-  return null
 })
 
 let ws: WebSocketClient | null = null
