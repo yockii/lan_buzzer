@@ -1,12 +1,9 @@
 <template>
   <div class="quiz-display bg-slate-800 rounded-2xl p-8 mb-6">
     <div v-if="!currentQuestion" class="text-center py-12">
-      <button
-        @click="handleStart"
-        class="px-8 py-4 bg-blue-500 hover:bg-blue-600 rounded-lg text-xl font-semibold transition-colors"
-      >
-        开始答题
-      </button>
+      <div class="text-slate-400 text-lg">
+        {{ allQuestionsDone ? '✅ 所有题目已完成！' : '点击"开始答题"按钮开始' }}
+      </div>
     </div>
 
     <div v-else>
@@ -15,7 +12,7 @@
       </div>
 
       <div
-        v-if="currentQuestion.options.length > 0"
+        v-if="currentQuestion.options && currentQuestion.options.length > 0"
         class="grid gap-4 max-w-2xl mx-auto"
         :class="currentQuestion.options.length === 2 ? 'grid-cols-2' : 'grid-cols-1'"
       >
@@ -31,45 +28,35 @@
       <div v-else class="text-center text-slate-400">
         (问答题，选手输入答案)
       </div>
-
-      <div class="mt-8 text-center">
-        <button
-          @click="handleNext"
-          class="px-8 py-4 bg-green-500 hover:bg-green-600 rounded-lg text-xl font-semibold transition-colors"
-        >
-          下一题
-        </button>
-      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { WebSocketClient } from '@/shared/websocket'
 import type { Question } from '@/shared/types'
 
+const emit = defineEmits(['quizQuestion'])
+
 const props = defineProps<{
-  ws: WebSocketClient | null
+  ws: any
 }>()
 
 const currentQuestion = ref<Question | null>(null)
-
-const handleStart = () => {
-  if (props.ws) {
-    props.ws.send('quiz_start', {})
-  }
-}
-
-const handleNext = () => {
-  if (props.ws) {
-    props.ws.send('quiz_next', {})
-  }
-}
+const allQuestionsDone = ref(false)
 
 if (props.ws) {
   props.ws.on('quiz_question', (payload: Question) => {
+    console.log('quiz_question', payload)
     currentQuestion.value = payload
+    allQuestionsDone.value = false
+    emit('quizQuestion', payload)
+  })
+
+  // Listen for when no more questions are available
+  props.ws.on('quiz_no_questions', () => {
+    currentQuestion.value = null
+    allQuestionsDone.value = true
   })
 }
 </script>

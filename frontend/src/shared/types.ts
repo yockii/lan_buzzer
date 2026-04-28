@@ -46,7 +46,7 @@ export interface QuizAnswerUpdate {
   playerColor: string
   answer: string
   status: 'pending' | 'correct' | 'incorrect'
-  isWinner: boolean
+  timestamp: number
 }
 
 export interface QuizQuestionMessage {

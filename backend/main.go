@@ -43,6 +43,7 @@ func main() {
 	// Try to load question bank
 	questionBankPath := "questions.txt"
 	if qb, err := quiz.LoadQuestionBank(questionBankPath); err == nil {
+		// Convert quiz.QuestionBank to game.QuestionBank interface
 		gameServer.SetQuestionBank(qb)
 		log.Printf("Loaded question bank, mode: quiz")
 	} else {
@@ -56,10 +57,15 @@ func main() {
 	app.Get("/api/info", func(c *fiber.Ctx) error {
 		localIP := getLocalIP()
 		allIPs := getAllLocalIPs()
+		mode := "buzzer"
+		if gameServer.HasQuestionBank() {
+			mode = "quiz"
+		}
 		return c.JSON(fiber.Map{
 			"serverUrl": fmt.Sprintf("http://%s:3000", localIP),
 			"localIP":  localIP,
 			"allIPs":   allIPs,
+			"mode":     mode,
 		})
 	})
 

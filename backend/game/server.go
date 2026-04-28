@@ -1,6 +1,7 @@
 package game
 
 import (
+	"github.com/yockii/lan_qr/backend/quiz"
 	"time"
 )
 
@@ -87,7 +88,7 @@ func (gs *GameServer) GetWinner() *Player {
 }
 
 // SetQuestionBank sets the question bank and enables quiz mode
-func (gs *GameServer) SetQuestionBank(qb QuestionBank) {
+func (gs *GameServer) SetQuestionBank(qb *quiz.QuestionBank) {
 	gs.Mutex.Lock()
 	defer gs.Mutex.Unlock()
 
@@ -98,6 +99,13 @@ func (gs *GameServer) SetQuestionBank(qb QuestionBank) {
 	gs.Mode = ModeQuiz
 }
 
+// HasQuestionBank returns true if a question bank is set
+func (gs *GameServer) HasQuestionBank() bool {
+	gs.Mutex.RLock()
+	defer gs.Mutex.RUnlock()
+	return gs.QuestionBank != nil
+}
+
 // GetMode returns the current game mode
 func (gs *GameServer) GetMode() GameMode {
 	gs.Mutex.RLock()
@@ -106,12 +114,17 @@ func (gs *GameServer) GetMode() GameMode {
 }
 
 // StartQuizQuestion starts a new quiz question
-func (gs *GameServer) StartQuizQuestion() *Question {
+func (gs *GameServer) StartQuizQuestion() *quiz.Question {
 	gs.Mutex.Lock()
 	defer gs.Mutex.Unlock()
 
 	if gs.QuestionBank == nil {
 		return nil
+	}
+
+	// Mark current question as asked before starting a new one
+	if gs.QuizState != nil && gs.QuizState.CurrentQuestion != nil {
+		gs.QuestionBank.MarkAsked(gs.QuizState.CurrentQuestion.ID)
 	}
 
 	question := gs.QuestionBank.GetRandomQuestion()
@@ -146,11 +159,6 @@ func (gs *GameServer) SubmitAnswer(playerID string, answer string) *PlayerAnswer
 	if !question.NeedsManualJudgment() {
 		if question.IsCorrect(answer) {
 			playerAnswer.Status = AnswerStatusCorrect
-			// Check if first correct answer
-			if gs.QuizState.WinnerID == "" {
-				playerAnswer.IsWinner = true
-				gs.QuizState.WinnerID = playerID
-			}
 		} else {
 			playerAnswer.Status = AnswerStatusIncorrect
 		}
@@ -158,10 +166,6 @@ func (gs *GameServer) SubmitAnswer(playerID string, answer string) *PlayerAnswer
 		// Manual judgment for open-ended
 		if question.IsCorrect(answer) {
 			playerAnswer.Status = AnswerStatusCorrect
-			if gs.QuizState.WinnerID == "" {
-				playerAnswer.IsWinner = true
-				gs.QuizState.WinnerID = playerID
-			}
 		} else {
 			playerAnswer.Status = AnswerStatusPending
 		}
@@ -187,17 +191,15 @@ func (gs *GameServer) JudgeAnswer(playerID string, correct bool) bool {
 
 	if correct {
 		playerAnswer.Status = AnswerStatusCorrect
-		// Check if first correct answer
-		if gs.QuizState.WinnerID == "" {
-			playerAnswer.IsWinner = true
-			gs.QuizState.WinnerID = playerID
-			return true
-		}
 	} else {
 		playerAnswer.Status = AnswerStatusIncorrect
+		// If changing from correct to incorrect, clear IsWinner
+		if playerAnswer.IsWinner {
+			playerAnswer.IsWinner = false
+		}
 	}
 
-	return false
+	return true
 }
 
 // GetQuizState returns the current quiz state
@@ -218,7 +220,7 @@ func (gs *GameServer) GetQuizState() *QuizState {
 }
 
 // NextQuizQuestion moves to the next question
-func (gs *GameServer) NextQuizQuestion() *Question {
+func (gs *GameServer) NextQuizQuestion() *quiz.Question {
 	gs.Mutex.Lock()
 	defer gs.Mutex.Unlock()
 
@@ -236,8 +238,28 @@ func (gs *GameServer) NextQuizQuestion() *Question {
 	if question != nil {
 		gs.QuizState.CurrentQuestion = question
 		gs.QuizState.Answers = make(map[string]*PlayerAnswer)
-		gs.QuizState.WinnerID = ""
 	}
 
 	return question
+}
+
+// ResetQuizQuestionBank resets the question bank to start over
+func (gs *GameServer) ResetQuizQuestionBank() bool {
+	gs.Mutex.Lock()
+	defer gs.Mutex.Unlock()
+
+	if gs.QuestionBank == nil {
+		return false
+	}
+
+	gs.QuestionBank.ResetAsked()
+
+	// Reset current quiz state
+	if gs.QuizState != nil {
+		gs.QuizState.CurrentQuestion = nil
+		gs.QuizState.Answers = make(map[string]*PlayerAnswer)
+		gs.QuizState.WinnerID = ""
+	}
+
+	return true
 }

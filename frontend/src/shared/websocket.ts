@@ -42,9 +42,12 @@ export class WebSocketClient {
     this.ws.onmessage = (event) => {
       try {
         const message: Message = JSON.parse(event.data)
+        console.log('[DEBUG WebSocket] Received message type:', message.type)
         const handler = this.messageHandlers.get(message.type)
         if (handler) {
           handler(message.payload)
+        } else {
+          console.log('[DEBUG WebSocket] No handler for message type:', message.type)
         }
       } catch (error) {
         console.error('Failed to parse message:', error)

@@ -1,6 +1,7 @@
 package game
 
 import (
+	"github.com/yockii/lan_qr/backend/quiz"
 	"sync"
 	"time"
 )
@@ -29,7 +30,7 @@ type GameServer struct {
 	Mutex     sync.RWMutex       `json:"-"`
 
 	// Quiz mode fields
-	QuestionBank QuestionBank
+	QuestionBank *quiz.QuestionBank
 	QuizState    *QuizState
 	Mode         GameMode
 }
@@ -44,7 +45,7 @@ const (
 
 // QuizState represents the state of a quiz session
 type QuizState struct {
-	CurrentQuestion *Question
+	CurrentQuestion *quiz.Question
 	Answers         map[string]*PlayerAnswer
 	WinnerID        string
 	mutex           sync.RWMutex

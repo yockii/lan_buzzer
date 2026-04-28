@@ -8,6 +8,7 @@ import (
 	"github.com/gofiber/websocket/v2"
 	"github.com/google/uuid"
 	"github.com/yockii/lan_qr/backend/game"
+	"github.com/yockii/lan_qr/backend/quiz"
 )
 
 type Handler struct {
@@ -74,6 +75,8 @@ func (h *Handler) handleConnection(conn *websocket.Conn) {
 			h.handleQuizJudge(conn, msg)
 		case "quiz_next":
 			h.handleQuizNext(conn)
+		case "quiz_reset":
+			h.handleQuizReset(conn)
 		}
 	}
 }
@@ -323,7 +326,7 @@ func (h *Handler) handleRemovePlayer(conn *websocket.Conn, msg *Message) {
 func (h *Handler) handleQuizStart(conn *websocket.Conn) {
 	question := h.server.StartQuizQuestion()
 	if question == nil {
-		h.sendError(conn, "No questions available")
+		h.broadcastNoQuestions()
 		return
 	}
 
@@ -351,36 +354,66 @@ func (h *Handler) handleQuizAnswer(conn *websocket.Conn, playerID string, msg *M
 func (h *Handler) handleQuizJudge(conn *websocket.Conn, msg *Message) {
 	payload, ok := msg.Payload.(map[string]any)
 	if !ok {
+		log.Printf("[DEBUG] handleQuizJudge: payload is not map[string]any")
 		return
 	}
 
 	playerID, _ := payload["playerId"].(string)
-	correctStr, _ := payload["correct"].(string)
-	if playerID == "" || correctStr == "" {
+	if playerID == "" {
+		log.Printf("[DEBUG] handleQuizJudge: playerId is empty")
 		return
 	}
 
-	correct := correctStr == "true" || correctStr == "1"
-	isFirstCorrect := h.server.JudgeAnswer(playerID, correct)
+	// Handle both boolean and string types for 'correct'
+	var correct bool
+	switch v := payload["correct"].(type) {
+	case bool:
+		correct = v
+		log.Printf("[DEBUG] handleQuizJudge: correct is bool: %v", v)
+	case string:
+		correct = v == "true" || v == "1"
+		log.Printf("[DEBUG] handleQuizJudge: correct is string: %s -> %v", v, correct)
+	default:
+		log.Printf("[DEBUG] handleQuizJudge: correct is unknown type: %T", v)
+		return
+	}
 
-	if isFirstCorrect {
-		quizState := h.server.GetQuizState()
-		if quizState != nil {
-			if playerAnswer, exists := quizState.Answers[playerID]; exists {
-				h.broadcastQuizAnswerUpdate(playerAnswer)
-			}
+	log.Printf("[DEBUG] handleQuizJudge: playerId=%s correct=%v", playerID, correct)
+	h.server.JudgeAnswer(playerID, correct)
+
+	// Always broadcast the updated answer
+	quizState := h.server.GetQuizState()
+	if quizState != nil {
+		if playerAnswer, exists := quizState.Answers[playerID]; exists {
+			h.broadcastQuizAnswerUpdate(playerAnswer)
 		}
 	}
 }
 
 func (h *Handler) handleQuizNext(conn *websocket.Conn) {
+	log.Printf("[DEBUG] handleQuizNext: getting next question")
 	question := h.server.NextQuizQuestion()
 	if question != nil {
+		log.Printf("[DEBUG] handleQuizNext: broadcasting question ID=%s", question.ID)
 		h.broadcastQuizQuestion(question)
+	} else {
+		log.Printf("[DEBUG] handleQuizNext: no more questions")
+		h.broadcastNoQuestions()
 	}
 }
 
-func (h *Handler) broadcastQuizQuestion(question *game.Question) {
+func (h *Handler) handleQuizReset(conn *websocket.Conn) {
+	if h.server.ResetQuizQuestionBank() {
+		log.Printf("Quiz question bank reset")
+		// Broadcast reset notification to clear UI
+		h.broadcast(Message{
+			Type:    "quiz_reset",
+			Payload: map[string]any{},
+		})
+	}
+}
+
+func (h *Handler) broadcastQuizQuestion(question *quiz.Question) {
 	payload := map[string]any{
 		"id":       question.ID,
 		"type":     string(question.Type),
@@ -393,6 +426,7 @@ func (h *Handler) broadcastQuizQuestion(question *game.Question) {
 		Payload: payload,
 	}
 
+	log.Printf("[DEBUG] broadcastQuizQuestion: broadcasting quiz_question to %d clients", len(h.clients))
 	h.broadcast(msg)
 }
 
@@ -414,12 +448,21 @@ func (h *Handler) broadcastQuizAnswerUpdate(playerAnswer *game.PlayerAnswer) {
 		"playerColor":  playerColor,
 		"answer":      playerAnswer.Answer,
 		"status":      string(playerAnswer.Status),
-		"isWinner":    playerAnswer.IsWinner,
+		"timestamp":   playerAnswer.Timestamp,
 	}
 
 	msg := Message{
 		Type:    "quiz_answer_update",
 		Payload: payload,
+	}
+
+	h.broadcast(msg)
+}
+
+func (h *Handler) broadcastNoQuestions() {
+	msg := Message{
+		Type:    "quiz_no_questions",
+		Payload: map[string]any{},
 	}
 
 	h.broadcast(msg)

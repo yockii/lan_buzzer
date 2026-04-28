@@ -15,8 +15,9 @@
     <!-- Waiting for question -->
     <div v-if="!currentQuestion" class="flex-1 flex items-center justify-center px-8">
       <div class="text-center text-slate-400">
-        <div class="text-4xl mb-4">⏳</div>
-        <div class="text-xl">等待主持人开始...</div>
+        <div v-if="allQuestionsDone" class="text-4xl mb-4">🎉</div>
+        <div v-else class="text-4xl mb-4">⏳</div>
+        <div class="text-xl">{{ allQuestionsDone ? '所有题目已完成！' : '等待主持人开始...' }}</div>
       </div>
     </div>
 
@@ -36,7 +37,7 @@
 
       <!-- Multiple choice / true false -->
       <div
-        v-if="currentQuestion.options.length > 0"
+        v-if="currentQuestion && currentQuestion.options && currentQuestion.options.length > 0"
         class="w-full max-w-md grid gap-4"
         :class="currentQuestion.options.length === 2 ? 'grid-cols-2' : 'grid-cols-1'"
       >
@@ -84,6 +85,7 @@ const currentQuestion = ref<Question | null>(null)
 const answerSubmitted = ref(false)
 const openAnswer = ref('')
 const connected = ref(false)
+const allQuestionsDone = ref(false)
 
 const wsUrl = computed(() => {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -104,6 +106,7 @@ onMounted(() => {
   ws.on('quiz_question', (payload: Question) => {
     currentQuestion.value = payload
     answerSubmitted.value = false
+    allQuestionsDone.value = false
   })
 
   ws.on('quiz_next', () => {
@@ -111,9 +114,12 @@ onMounted(() => {
     answerSubmitted.value = false
   })
 
-  ws.on('quiz_answer_update', () => {
-    answerSubmitted.value = true
+  ws.on('quiz_no_questions', () => {
+    currentQuestion.value = null
+    allQuestionsDone.value = true
   })
+
+  // Note: quiz_answer_update is for host only, players should not react to it
 
   ws.on('open', () => {
     connected.value = true
@@ -135,7 +141,15 @@ onUnmounted(() => {
 const handleAnswer = (answer: string) => {
   if (!answer.trim() || !ws) return
 
-  ws.send('quiz_answer', { answer })
+  // Extract option letter (A, B, C, D) from full option text
+  // Format: "A.中央处理器" -> "A"
+  let answerToSend = answer.trim()
+  const match = answerToSend.match(/^([A-D])\./)
+  if (match) {
+    answerToSend = match[1]
+  }
+
+  ws.send('quiz_answer', { answer: answerToSend })
   answerSubmitted.value = true
   openAnswer.value = ''
 }
